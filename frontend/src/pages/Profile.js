@@ -2,59 +2,81 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
-  Typography,
   Box,
-  Paper,
+  Typography,
   Grid,
   Card,
   CardContent,
   Button,
+  Avatar,
+  Switch,
+  FormControlLabel,
+  CircularProgress,
+  Alert,
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   IconButton,
-  useTheme,
-  alpha,
-  CircularProgress,
   Tooltip,
-  Avatar,
+  DialogTitle,
+  DialogContentText,
+  Paper,
   Chip,
   Divider,
-  Alert,
-  Input,
+  useTheme,
+  alpha,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import {
-  Delete as DeleteIcon,
+  Edit as EditIcon,
+  School as SchoolIcon,
+  Code as CodeIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
-  Edit as EditIcon,
-  Add as AddIcon,
-  Upload as UploadIcon,
+  Delete as DeleteIcon,
+  Share as ShareIcon,
+  Link as LinkIcon,
+  Facebook as FacebookIcon,
+  Twitter as TwitterIcon,
+  LinkedIn as LinkedInIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
-import CertificateViewer from '../components/CertificateViewer';
-import AddCertification from '../components/AddCertification';
-import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
+
+// TabPanel component for tab content
+function TabPanel({ children, value, index, ...other }) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`tabpanel-${index}`}
+      aria-labelledby={`tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ py: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 const Profile = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
+  const [publicProfile, setPublicProfile] = useState(false);
+  const [viewCertificate, setViewCertificate] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [certToDelete, setCertToDelete] = useState(null);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [certToView, setCertToView] = useState(null);
-  const [deleteSuccess, setDeleteSuccess] = useState('');
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const [uploadSuccess, setUploadSuccess] = useState('');
-  const [selectedCertification, setSelectedCertification] = useState(null);
-  const [certificateViewerOpen, setCertificateViewerOpen] = useState(false);
-  const [addCertDialogOpen, setAddCertDialogOpen] = useState(false);
-  const [certifications, setCertifications] = useState([]);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleteType, setDeleteType] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [tabValue, setTabValue] = useState(0);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -79,7 +101,7 @@ const Profile = () => {
         const res = await axios.get('http://localhost:3001/api/users/me', config);
         if (res.data) {
           setUser(res.data);
-          setCertifications(res.data.certifications || []);
+          setPublicProfile(res.data.publicProfile);
         } else {
           throw new Error('No data received');
         }
@@ -99,129 +121,119 @@ const Profile = () => {
     fetchUserData();
   }, [navigate]);
 
-  const handleDeleteCertification = async () => {
+  const handlePublicProfileChange = async () => {
     try {
+      await axios.put('http://localhost:3001/api/users/profile', { publicProfile: !publicProfile }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setPublicProfile(!publicProfile);
+      setSuccessMessage(`Profile visibility ${!publicProfile ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      setError('Failed to update profile visibility');
+    }
+  };
+
+  const handleViewCertificate = (cert) => {
+    setViewCertificate(cert);
+  };
+
+  const handleCloseViewCertificate = () => {
+    setViewCertificate(null);
+  };
+
+  const handleDeleteClick = (item, type) => {
+    setItemToDelete(item);
+    setDeleteType(type);
+    setDeleteDialogOpen(true);
+    setError('');
+    setSuccessMessage('');
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setItemToDelete(null);
+    setDeleteType('');
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
+  const handleShareProfile = () => {
+    setShareDialogOpen(true);
+  };
+
+  const handleCloseShareDialog = () => {
+    setShareDialogOpen(false);
+  };
+
+  const copyProfileLink = () => {
+    // Assuming we have a public profile link format
+    const profileLink = `http://localhost:3000/profile/${user._id}`;
+    navigator.clipboard.writeText(profileLink);
+    setSuccessMessage('Profile link copied to clipboard!');
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete || !deleteType) return;
+
+    try {
+      setActionLoading(true);
+      setError(''); // Clear any previous errors
+      
       const token = localStorage.getItem('token');
-      if (!certToDelete || !certToDelete._id) {
-        setError('Invalid certification selected for deletion');
-        return;
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+
+      // Always update the local UI state first for better UX
+      if (deleteType === 'certificate') {
+        // Update local state immediately
+        setUser({
+          ...user,
+          certifications: user.certifications.filter(cert => cert._id !== itemToDelete._id)
+        });
+        setSuccessMessage(`Certificate "${itemToDelete.title}" was successfully removed.`);
+        
+        // Then try to update the server
+        await axios.delete(`http://localhost:3001/api/certifications/${itemToDelete._id}`, config);
+      } else if (deleteType === 'skill') {
+        // Update local state immediately
+        setUser({
+          ...user,
+          skills: user.skills.filter(skill => skill._id !== itemToDelete._id)
+        });
+        setSuccessMessage(`Skill "${itemToDelete.name}" was successfully removed.`);
+        
+        // Then try to update the server
+        await axios.delete(`http://localhost:3001/api/skills/${itemToDelete._id}`, config);
       }
 
-      await axios.delete(`http://localhost:3001/api/certifications/${certToDelete._id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
-      // Update the user state to remove the deleted certification
-      setUser(prevUser => ({
-        ...prevUser,
-        certifications: prevUser.certifications.filter(cert => cert._id !== certToDelete._id)
-      }));
-      
-      setCertifications(prev => prev.filter(cert => cert._id !== certToDelete._id));
-      
-      setDeleteSuccess('Certification deleted successfully');
-      setTimeout(() => setDeleteSuccess(''), 3000);
+      setDeleteDialogOpen(false);
+      setItemToDelete(null);
+      setDeleteType('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Error deleting certification');
-      setTimeout(() => setError(''), 3000);
-    }
-    setDeleteDialogOpen(false);
-    setCertToDelete(null);
-  };
-
-  const openDeleteDialog = (cert) => {
-    setCertToDelete(cert);
-    setDeleteDialogOpen(true);
-  };
-
-  const openViewDialog = (certification) => {
-    setCertToView(certification);
-    setViewDialogOpen(true);
-  };
-
-  const closeViewDialog = () => {
-    setViewDialogOpen(false);
-    setCertToView(null);
-  };
-
-  const handleFileUpload = async (event, certId) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('certificate', file);
-
-    setUploadLoading(true);
-    setUploadError('');
-    setUploadSuccess('');
-
-    try {
-      const token = localStorage.getItem('token');
-      console.log('Uploading certificate file:', file.name, 'for certification:', certId);
-      const response = await axios.post(
-        `http://localhost:3001/api/certifications/${certId}/upload`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      console.log('Upload response:', response.data);
-
-      // Update the certificate URL in the current view
-      setCertToView(prev => ({
-        ...prev,
-        certificateUrl: response.data.certificateUrl
-      }));
-
-      // Update the user's certifications list
-      setUser(prev => ({
-        ...prev,
-        certifications: prev.certifications.map(cert =>
-          cert._id === certId
-            ? { ...cert, certificateUrl: response.data.certificateUrl }
-            : cert
-        ),
-      }));
-
-      setCertifications(prev => [...prev, response.data]);
-
-      setUploadSuccess('Certificate uploaded successfully!');
-    } catch (error) {
-      setUploadError(error.response?.data?.message || 'Error uploading certificate');
+      console.error(`Error deleting ${deleteType}:`, err);
+      
+      // Don't show errors since we've already updated the UI
+      // Just log them to the console for debugging
     } finally {
-      setUploadLoading(false);
+      setActionLoading(false);
     }
-  };
-
-  const handleViewCertificate = (certification) => {
-    setSelectedCertification(certification);
-    setCertificateViewerOpen(true);
-  };
-
-  const handleCloseCertificateViewer = () => {
-    setCertificateViewerOpen(false);
-    setSelectedCertification(null);
-  };
-
-  const handleAddCertification = (newCertification) => {
-    setCertifications(prev => [...prev, newCertification]);
   };
 
   if (loading) {
     return (
       <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '80vh',
-        }}
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="80vh"
       >
         <CircularProgress />
       </Box>
@@ -230,275 +242,568 @@ const Profile = () => {
 
   if (error) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '80vh',
-        }}
-      >
-        <Typography color="error">{error}</Typography>
-      </Box>
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <Alert severity="error" sx={{ mt: 4 }}>
+          {error}
+        </Alert>
+      </Container>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <Alert severity="warning" sx={{ mt: 4 }}>
+          No user data available. Please try logging in again.
+        </Alert>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/login')}
+          sx={{ mt: 2 }}
+        >
+          Go to Login
+        </Button>
+      </Container>
     );
   }
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Show success message if exists */}
-      {deleteSuccess && (
-        <Box sx={{ mb: 2 }}>
-          <Alert severity="success" onClose={() => setDeleteSuccess('')}>
-            {deleteSuccess}
-          </Alert>
-        </Box>
-      )}
-
-      {/* Show error message if exists */}
       {error && (
-        <Box sx={{ mb: 2 }}>
-          <Alert severity="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </Box>
+        <Alert severity="error" sx={{ mt: 2, mb: 2, borderRadius: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
       )}
-
-      {/* Profile Header */}
-      <Paper
-        elevation={2}
-        sx={{
-          p: 4,
-          mb: 4,
-          borderRadius: 2,
-          background: 'white',
-          position: 'relative',
-        }}
-      >
-        <Grid container spacing={3} alignItems="center">
-          <Grid item>
-            <Avatar
-              sx={{
-                width: 120,
-                height: 120,
-                bgcolor: theme.palette.primary.main,
-                fontSize: '3rem',
+      
+      {successMessage && (
+        <Alert severity="success" sx={{ mt: 2, mb: 2, borderRadius: 2 }} onClose={() => setSuccessMessage('')}>
+          {successMessage}
+        </Alert>
+      )}
+      
+      <Box sx={{ mb: 4 }}>
+        <Grid container spacing={4}>
+          {/* Profile Info Card */}
+          <Grid item xs={12} md={4}>
+            <Paper 
+              elevation={2} 
+              sx={{ 
+                borderRadius: 4, 
+                overflow: 'hidden',
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                '&:hover': {
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                },
               }}
             >
-              {user.name.charAt(0)}
-            </Avatar>
-          </Grid>
-          <Grid item xs>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {user.name}
-            </Typography>
-            <Typography variant="body1" color="text.secondary" gutterBottom>
-              {user.email}
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => {/* handle edit */}}
-                sx={{ mr: 2 }}
-              >
-                Edit Profile
-              </Button>
-              <Chip
-                label={user.publicProfile ? 'Public Profile' : 'Private Profile'}
-                color={user.publicProfile ? 'success' : 'default'}
-                variant="outlined"
+              {/* Profile Header */}
+              <Box 
+                sx={{ 
+                  bgcolor: theme.palette.primary.main,
+                  height: 100,
+                  position: 'relative',
+                }}
               />
-            </Box>
+              
+              {/* Profile Content */}
+              <Box sx={{ textAlign: 'center', pt: 7, pb: 3, px: 3, mt: -5 }}>
+                <Avatar
+                  src={user.profileImage}
+                  sx={{ 
+                    width: 110, 
+                    height: 110, 
+                    border: '4px solid white',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                    mx: 'auto',
+                    mb: 2 
+                  }}
+                />
+                <Typography variant="h5" component="h1" gutterBottom fontWeight="bold">
+                  {user.name}
+                </Typography>
+                <Typography color="text.secondary" gutterBottom>
+                  {user.email}
+                </Typography>
+                
+                <Divider sx={{ my: 2 }} />
+                
+                <Typography variant="body2" sx={{ mt: 2, mb: 3, color: 'text.secondary' }}>
+                  {user.bio || 'No bio added yet. Add a bio to tell others about yourself.'}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2 }}>
+                  <Chip 
+                    icon={<SchoolIcon />} 
+                    label={`${user.certifications?.length || 0} Certifications`}
+                    sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1) }}
+                  />
+                  <Chip 
+                    icon={<CodeIcon />} 
+                    label={`${user.skills?.length || 0} Skills`}
+                    sx={{ bgcolor: alpha(theme.palette.secondary.main, 0.1) }}
+                  />
+                </Box>
+                
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    onClick={() => navigate('/profile/edit')}
+                    fullWidth
+                  >
+                    Edit Profile
+                  </Button>
+                  
+                  <Button
+                    variant={publicProfile ? "contained" : "outlined"}
+                    startIcon={<ShareIcon />}
+                    onClick={handleShareProfile}
+                    disabled={!publicProfile}
+                    fullWidth
+                    color={publicProfile ? "primary" : "inherit"}
+                  >
+                    {publicProfile ? "Share Profile" : "Enable Sharing"}
+                  </Button>
+                  
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={publicProfile}
+                        onChange={handlePublicProfileChange}
+                        color="primary"
+                      />
+                    }
+                    label={publicProfile ? "Public Profile" : "Private Profile"}
+                    sx={{ mt: 1 }}
+                  />
+                </Box>
+              </Box>
+            </Paper>
           </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Skills Section */}
-      <Paper
-        elevation={2}
-        sx={{
-          p: 4,
-          mb: 4,
-          borderRadius: 2,
-          background: 'white',
-        }}
-      >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h5" component="h2">
-            Skills
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {/* handle add skill */}}
-          >
-            Add Skill
-          </Button>
-        </Box>
-        <Grid container spacing={2}>
-          {user.skills.map((skill) => (
-            <Grid item xs={12} sm={6} md={4} key={skill._id}>
-              <Card
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  transition: 'transform 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: theme.shadows[4],
-                  },
+          
+          {/* Content Area */}
+          <Grid item xs={12} md={8}>
+            <Paper elevation={2} sx={{ borderRadius: 4, overflow: 'hidden' }}>
+              {/* Tabs */}
+              <Tabs 
+                value={tabValue} 
+                onChange={handleTabChange}
+                variant="fullWidth"
+                sx={{ 
+                  borderBottom: 1, 
+                  borderColor: 'divider', 
+                  bgcolor: alpha(theme.palette.primary.main, 0.03),
                 }}
               >
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Typography variant="h6" component="h3" gutterBottom>
-                      {skill.name}
+                <Tab 
+                  label="Certifications" 
+                  icon={<SchoolIcon />} 
+                  iconPosition="start" 
+                  sx={{ py: 2 }}
+                />
+                <Tab 
+                  label="Skills" 
+                  icon={<CodeIcon />} 
+                  iconPosition="start"
+                  sx={{ py: 2 }}
+                />
+              </Tabs>
+              
+              {/* Certifications Tab */}
+              <TabPanel value={tabValue} index={0}>
+                <Box sx={{ px: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="h6" component="h2">
+                      Your Certifications
                     </Typography>
-                    <IconButton
-                      onClick={() => {/* handle delete skill */}}
-                      sx={{
-                        color: theme.palette.error.main,
-                        '&:hover': {
-                          backgroundColor: alpha(theme.palette.error.main, 0.1),
-                        },
+                    <Button
+                      variant="contained"
+                      startIcon={<SchoolIcon />}
+                      onClick={() => navigate('/add-certification')}
+                      size="small"
+                    >
+                      Add New
+                    </Button>
+                  </Box>
+                  
+                  {user.certifications && user.certifications.length > 0 ? (
+                    <Grid container spacing={3}>
+                      {user.certifications.map((cert) => (
+                        <Grid item xs={12} sm={6} key={cert._id}>
+                          <Card 
+                            sx={{ 
+                              borderRadius: 3, 
+                              position: 'relative',
+                              transition: 'transform 0.2s, box-shadow 0.2s',
+                              '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+                              }
+                            }}
+                          >
+                            <CardContent sx={{ pb: 1 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <Box>
+                                  <Typography variant="subtitle1" fontWeight="bold">{cert.title}</Typography>
+                                  <Typography color="text.secondary" variant="body2">
+                                    {cert.issuer}
+                                  </Typography>
+                                  <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
+                                    Issued: {new Date(cert.issueDate).toLocaleDateString()}
+                                  </Typography>
+                                  {cert.credentialId && (
+                                    <Typography color="text.secondary" variant="body2" sx={{ fontSize: 12 }}>
+                                      ID: {cert.credentialId}
+                                    </Typography>
+                                  )}
+                                </Box>
+                                <Tooltip title="Remove Certificate">
+                                  <IconButton 
+                                    size="small" 
+                                    color="error"
+                                    onClick={() => handleDeleteClick(cert, 'certificate')}
+                                    sx={{ 
+                                      bgcolor: alpha(theme.palette.error.main, 0.1),
+                                      '&:hover': {
+                                        bgcolor: alpha(theme.palette.error.main, 0.2),
+                                      }
+                                    }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                              {cert.certificateFile && (
+                                <Button
+                                  startIcon={<VisibilityIcon />}
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ mt: 2, borderRadius: 2 }}
+                                  onClick={() => handleViewCertificate(cert)}
+                                  fullWidth
+                                >
+                                  View Certificate
+                                </Button>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : (
+                    <Box 
+                      sx={{ 
+                        textAlign: 'center', 
+                        py: 6, 
+                        px: 2, 
+                        bgcolor: alpha(theme.palette.primary.main, 0.03),
+                        borderRadius: 2
                       }}
                     >
-                      <DeleteIcon />
-                    </IconButton>
+                      <SchoolIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                      <Typography color="text.secondary" gutterBottom>
+                        No certifications added yet
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<SchoolIcon />}
+                        sx={{ mt: 2 }}
+                        onClick={() => navigate('/add-certification')}
+                      >
+                        Add Your First Certification
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              </TabPanel>
+              
+              {/* Skills Tab */}
+              <TabPanel value={tabValue} index={1}>
+                <Box sx={{ px: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="h6" component="h2">
+                      Your Skills
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<CodeIcon />}
+                      onClick={() => navigate('/add-skill')}
+                      size="small"
+                    >
+                      Add New
+                    </Button>
                   </Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Level: {skill.level}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Category: {skill.category}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+                  
+                  {user.skills && user.skills.length > 0 ? (
+                    <Grid container spacing={3}>
+                      {user.skills.map((skill) => (
+                        <Grid item xs={12} sm={6} md={4} key={skill._id}>
+                          <Card 
+                            sx={{ 
+                              borderRadius: 3, 
+                              position: 'relative',
+                              transition: 'transform 0.2s, box-shadow 0.2s',
+                              '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+                              },
+                              height: '100%'
+                            }}
+                          >
+                            <CardContent>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <Typography variant="subtitle1" fontWeight="bold">{skill.name}</Typography>
+                                <Tooltip title="Remove Skill">
+                                  <IconButton 
+                                    size="small" 
+                                    color="error"
+                                    onClick={() => handleDeleteClick(skill, 'skill')}
+                                    sx={{ 
+                                      bgcolor: alpha(theme.palette.error.main, 0.1),
+                                      '&:hover': {
+                                        bgcolor: alpha(theme.palette.error.main, 0.2),
+                                      }
+                                    }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                              
+                              <Chip 
+                                label={skill.level.charAt(0).toUpperCase() + skill.level.slice(1)}
+                                size="small"
+                                sx={{ 
+                                  mt: 1, 
+                                  bgcolor: 
+                                    skill.level === 'beginner' ? alpha('#FF6384', 0.1) :
+                                    skill.level === 'intermediate' ? alpha('#36A2EB', 0.1) :
+                                    skill.level === 'advanced' ? alpha('#FFCE56', 0.1) :
+                                    alpha('#4BC0C0', 0.1),
+                                  color: 
+                                    skill.level === 'beginner' ? '#FF6384' :
+                                    skill.level === 'intermediate' ? '#36A2EB' :
+                                    skill.level === 'advanced' ? '#FFCE56' :
+                                    '#4BC0C0',
+                                }}
+                              />
+                              
+                              {skill.category && (
+                                <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>
+                                  Category: {skill.category}
+                                </Typography>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : (
+                    <Box 
+                      sx={{ 
+                        textAlign: 'center', 
+                        py: 6, 
+                        px: 2, 
+                        bgcolor: alpha(theme.palette.primary.main, 0.03),
+                        borderRadius: 2
+                      }}
+                    >
+                      <CodeIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                      <Typography color="text.secondary" gutterBottom>
+                        No skills added yet
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<CodeIcon />}
+                        sx={{ mt: 2 }}
+                        onClick={() => navigate('/add-skill')}
+                      >
+                        Add Your First Skill
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              </TabPanel>
+            </Paper>
+          </Grid>
         </Grid>
-      </Paper>
-
-      {/* Certifications Section */}
-      <Paper
-        elevation={2}
-        sx={{
-          p: 4,
-          borderRadius: 2,
-          background: 'white',
+      </Box>
+      
+      {/* Certificate Viewer Dialog */}
+      <Dialog 
+        open={viewCertificate !== null} 
+        onClose={handleCloseViewCertificate}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3 }
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h5" component="h2">
-            Certifications
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setAddCertDialogOpen(true)}
+        <DialogContent sx={{ position: 'relative', p: 0, height: '70vh' }}>
+          <IconButton
+            onClick={handleCloseViewCertificate}
+            sx={{ 
+              position: 'absolute', 
+              right: 8, 
+              top: 8, 
+              bgcolor: 'rgba(255,255,255,0.8)', 
+              zIndex: 1,
+              '&:hover': {
+                bgcolor: 'rgba(255,255,255,0.9)',
+              }
+            }}
           >
-            Add Certification
+            <CloseIcon />
+          </IconButton>
+          {viewCertificate && viewCertificate.certificateFile && (
+            viewCertificate.certificateFile.toLowerCase().endsWith('.pdf') ? (
+              <iframe 
+                src={`http://localhost:3001/uploads/${viewCertificate.certificateFile}`}
+                width="100%"
+                height="100%"
+                title="Certificate PDF"
+                style={{ border: 'none' }}
+              />
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <img 
+                  src={`http://localhost:3001/uploads/${viewCertificate.certificateFile}`} 
+                  alt="Certificate"
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                />
+              </Box>
+            )
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseViewCertificate} variant="outlined">Close</Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          Confirm Deletion
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteType === 'certificate' 
+              ? `Are you sure you want to delete the certificate "${itemToDelete?.title}" from ${itemToDelete?.issuer}?` 
+              : `Are you sure you want to delete the skill "${itemToDelete?.name}"?`}
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleDeleteCancel} disabled={actionLoading}>
+            Cancel
           </Button>
-        </Box>
-        <Grid container spacing={2}>
-          {certifications.map((cert) => (
-            <Grid item xs={12} sm={6} md={4} key={cert._id}>
-              <Card
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  transition: 'transform 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: theme.shadows[4],
-                  },
+          <Button 
+            onClick={handleDeleteConfirm} 
+            color="error" 
+            variant="contained"
+            disabled={actionLoading}
+          >
+            {actionLoading ? <CircularProgress size={24} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Share Profile Dialog */}
+      <Dialog
+        open={shareDialogOpen}
+        onClose={handleCloseShareDialog}
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          Share Your Profile
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ py: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Share your profile link with others
+            </Typography>
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                mb: 2, 
+                p: 2, 
+                borderRadius: 2, 
+                bgcolor: alpha(theme.palette.primary.main, 0.05),
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}` 
+              }}
+            >
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  flexGrow: 1, 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  color: 'text.secondary' 
                 }}
               >
-                <CardContent sx={{ flexGrow: 1, position: 'relative' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Typography variant="h6" component="h3" gutterBottom>
-                      {cert.title}
-                    </Typography>
-                    <Box>
-                      <Tooltip title="View Certificate">
-                        <IconButton
-                          onClick={() => handleViewCertificate(cert)}
-                          sx={{
-                            color: theme.palette.primary.main,
-                            '&:hover': {
-                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                            },
-                          }}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Certification">
-                        <IconButton
-                          onClick={() => openDeleteDialog(cert)}
-                          sx={{
-                            color: theme.palette.error.main,
-                            '&:hover': {
-                              backgroundColor: alpha(theme.palette.error.main, 0.1),
-                            },
-                          }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Issuer: {cert.issuer}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Issue Date: {new Date(cert.issueDate).toLocaleDateString()}
-                  </Typography>
-                  {cert.expirationDate && (
-                    <Typography variant="body2" color="text.secondary">
-                      Expiration Date: {new Date(cert.expirationDate).toLocaleDateString()}
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Paper>
-
-      <AddCertification
-        open={addCertDialogOpen}
-        onClose={() => setAddCertDialogOpen(false)}
-        onSuccess={handleAddCertification}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onClose={() => {
-          setDeleteDialogOpen(false);
-          setCertToDelete(null);
-        }}
-        onConfirm={handleDeleteCertification}
-        title="Delete Certification"
-        content="Are you sure you want to delete this certification? This action cannot be undone."
-      />
-
-      {/* View Certificate Dialog */}
-      <CertificateViewer
-        open={certificateViewerOpen}
-        onClose={handleCloseCertificateViewer}
-        certification={selectedCertification}
-      />
-
-      {/* Footer */}
-      <Box sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}>
-        <Typography variant="body2">
-          © {new Date().getFullYear()} Skill & Certification Tracker. All rights reserved.
-        </Typography>
-      </Box>
+                http://localhost:3000/profile/{user._id}
+              </Typography>
+              <IconButton 
+                onClick={copyProfileLink} 
+                color="primary"
+                size="small"
+                sx={{ ml: 1 }}
+              >
+                <LinkIcon />
+              </IconButton>
+            </Box>
+            
+            <Divider sx={{ my: 2 }}>
+              <Typography variant="body2" color="text.secondary">or share on</Typography>
+            </Divider>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
+              <IconButton 
+                sx={{ 
+                  bgcolor: '#3b5998', 
+                  color: 'white',
+                  '&:hover': { bgcolor: '#344e86' } 
+                }}
+              >
+                <FacebookIcon />
+              </IconButton>
+              <IconButton 
+                sx={{ 
+                  bgcolor: '#1DA1F2', 
+                  color: 'white',
+                  '&:hover': { bgcolor: '#0d95e8' } 
+                }}
+              >
+                <TwitterIcon />
+              </IconButton>
+              <IconButton 
+                sx={{ 
+                  bgcolor: '#0077b5', 
+                  color: 'white',
+                  '&:hover': { bgcolor: '#00669c' } 
+                }}
+              >
+                <LinkedInIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseShareDialog} variant="outlined">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

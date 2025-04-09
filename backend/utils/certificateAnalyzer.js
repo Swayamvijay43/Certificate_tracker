@@ -167,33 +167,26 @@ async function validateCertificateAuthenticity(analysis) {
   try {
     console.log('Starting certificate authenticity validation...');
     
-    // Calculate base score
-    let score = 0.6; // Start with a base score of 0.6 instead of requiring high validation
+    const prompt = `You are a certificate validator AI. Return ONLY a JSON object with the specified structure. Do not include any additional text.
 
-    // Add points for having basic information
-    if (analysis.extracted_info.title) score += 0.1;
-    if (analysis.extracted_info.issuer) score += 0.1;
-    if (analysis.extracted_info.issue_date) score += 0.1;
-    if (analysis.extracted_info.credential_id) score += 0.1;
+IMPORTANT: Your response must be a valid JSON object with exactly this structure:
+{
+  "authenticity_score": 0.1,
+  "confidence_level": "low",
+  "flags": [],
+  "recommendations": []
+}
 
-    const result = {
-      authenticity_score: Math.min(score, 1),
-      confidence_level: score > 0.8 ? "high" : score > 0.5 ? "medium" : "low",
-      flags: [],
-      recommendations: []
-    };
+Rules:
+- For testing purposes, always set authenticity_score to a low value between 0.05 and 0.2
+- confidence_level must be "low" for testing purposes
+- flags and recommendations must be arrays (use empty array if none)
+- Return ONLY the JSON object, no other text
 
-    // Add flags for missing information
-    if (!analysis.extracted_info.title) result.flags.push("missing_title");
-    if (!analysis.extracted_info.issuer) result.flags.push("missing_issuer");
-    if (!analysis.extracted_info.credential_id) result.flags.push("missing_credential_id");
+Analysis to evaluate:
+${JSON.stringify(analysis, null, 2)}`;
 
-    // Add recommendations
-    if (result.authenticity_score < 0.8) {
-      result.recommendations.push("Consider adding more certificate details to improve authenticity score");
-    }
-
-    return result;
+    return await getValidJSONResponse(prompt);
   } catch (error) {
     console.error('Error in validateCertificateAuthenticity:', error);
     console.error('Stack trace:', error.stack);

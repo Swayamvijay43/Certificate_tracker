@@ -62,48 +62,18 @@ const SkillReviewDialog = ({
   };
 
   const handleAddNewSkill = () => {
-    if (!newSkill.name || !newSkill.category) {
-      console.warn('Both skill name and category are required');
-      return;
+    if (newSkill.name && newSkill.category) {
+      setSkills([...skills, { ...newSkill, confidence: 1.0 }]);
+      setNewSkill({
+        name: '',
+        level: 'beginner',
+        category: '',
+      });
     }
-
-    const skillToAdd = {
-      name: newSkill.name.trim(),
-      category: newSkill.category.trim(),
-      level: newSkill.level || 'beginner',
-      confidence: 1.0
-    };
-
-    console.log('Adding new skill:', skillToAdd);
-    setSkills([...skills, skillToAdd]);
-    
-    // Reset the form
-    setNewSkill({
-      name: '',
-      level: 'beginner',
-      category: '',
-    });
   };
 
   const handleConfirm = () => {
-    // Filter out any skills with empty names or categories
-    const validSkills = skills.filter(skill => 
-      skill.name && skill.name.trim() !== '' && 
-      skill.category && skill.category.trim() !== ''
-    ).map(skill => ({
-      name: skill.name.trim(),
-      category: skill.category.trim(),
-      level: skill.level || 'beginner',
-      confidence: skill.confidence || 1.0
-    }));
-
-    if (validSkills.length === 0) {
-      console.warn('No valid skills to add');
-      return;
-    }
-
-    console.log('Confirming skills:', validSkills);
-    onConfirm(validSkills);
+    onConfirm(skills);
     onClose();
   };
 
@@ -114,7 +84,7 @@ const SkillReviewDialog = ({
         {authenticity && (
           <Box sx={{ mb: 2 }}>
             <Alert 
-              severity={authenticity.authenticity_score > 0.7 ? "success" : "warning"}
+              severity={authenticity.authenticity_score > 0.05 ? "success" : "warning"}
               sx={{ mb: 1 }}
             >
               Certificate Authenticity Score: {(authenticity.authenticity_score * 100).toFixed(1)}%

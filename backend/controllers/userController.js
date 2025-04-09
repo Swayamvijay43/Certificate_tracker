@@ -77,28 +77,13 @@ const loginUser = asyncHandler(async (req, res) => {
 const getMe = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id)
     .select('-password')
-    .populate({
-      path: 'certifications',
-      select: 'title issuer issueDate credentialId credentialUrl description'
-    })
-    .populate({
-      path: 'skills',
-      select: 'name category level description'
-    });
+    .populate('certifications')
+    .populate('skills');
 
   if (!user) {
     res.status(404);
     throw new Error('User not found');
   }
-
-  // Log user data for debugging
-  console.log('User data:', {
-    id: user._id,
-    name: user.name,
-    skillCount: user.skills?.length || 0,
-    certCount: user.certifications?.length || 0,
-    skills: user.skills
-  });
 
   res.json(user);
 });

@@ -10,10 +10,17 @@ import {
   Avatar,
   CircularProgress,
   Alert,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
 import {
   School as SchoolIcon,
   Code as CodeIcon,
+  Visibility as VisibilityIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -22,6 +29,7 @@ const PublicProfile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewCertificate, setViewCertificate] = useState(null);
 
   useEffect(() => {
     const fetchPublicProfile = async () => {
@@ -37,6 +45,14 @@ const PublicProfile = () => {
 
     fetchPublicProfile();
   }, [profileUrl]);
+
+  const handleViewCertificate = (cert) => {
+    setViewCertificate(cert);
+  };
+
+  const handleCloseViewCertificate = () => {
+    setViewCertificate(null);
+  };
 
   if (loading) {
     return (
@@ -93,7 +109,7 @@ const PublicProfile = () => {
                 </Typography>
                 {user.certifications?.length > 0 ? (
                   user.certifications.map((cert) => (
-                    <Box key={cert._id} sx={{ mb: 2 }}>
+                    <Box key={cert._id} sx={{ mb: 2, p: 2, border: '1px solid #eee', borderRadius: 2 }}>
                       <Typography variant="subtitle1">{cert.title}</Typography>
                       <Typography variant="body2" color="text.secondary">
                         {cert.issuer} • {new Date(cert.issueDate).toLocaleDateString()}
@@ -102,6 +118,17 @@ const PublicProfile = () => {
                         <Typography variant="body2" sx={{ mt: 1 }}>
                           {cert.description}
                         </Typography>
+                      )}
+                      {cert.certificateFile && (
+                        <Button
+                          startIcon={<VisibilityIcon />}
+                          variant="outlined"
+                          size="small"
+                          sx={{ mt: 1 }}
+                          onClick={() => handleViewCertificate(cert)}
+                        >
+                          View Certificate
+                        </Button>
                       )}
                     </Box>
                   ))
@@ -143,6 +170,45 @@ const PublicProfile = () => {
           </Grid>
         </Grid>
       </Box>
+
+      {/* Certificate Viewer Dialog */}
+      <Dialog 
+        open={viewCertificate !== null} 
+        onClose={handleCloseViewCertificate}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogContent sx={{ position: 'relative', p: 0, height: '70vh' }}>
+          <IconButton
+            onClick={handleCloseViewCertificate}
+            sx={{ position: 'absolute', right: 8, top: 8, bgcolor: 'rgba(255,255,255,0.7)', zIndex: 1 }}
+          >
+            <CloseIcon />
+          </IconButton>
+          {viewCertificate && viewCertificate.certificateFile && (
+            viewCertificate.certificateFile.toLowerCase().endsWith('.pdf') ? (
+              <iframe 
+                src={`http://localhost:3001/uploads/${viewCertificate.certificateFile}`}
+                width="100%"
+                height="100%"
+                title="Certificate PDF"
+                style={{ border: 'none' }}
+              />
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <img 
+                  src={`http://localhost:3001/uploads/${viewCertificate.certificateFile}`} 
+                  alt="Certificate"
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                />
+              </Box>
+            )
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseViewCertificate}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

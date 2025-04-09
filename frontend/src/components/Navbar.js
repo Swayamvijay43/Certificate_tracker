@@ -29,6 +29,7 @@ import {
   ExitToApp,
   Search,
   CompareArrows,
+  Description,
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -40,7 +41,7 @@ const Navbar = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedProfiles, setSelectedProfiles] = useState([]);
-  const token = localStorage.getItem('token');
+  const isAuthenticated = localStorage.getItem('token');
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -124,7 +125,7 @@ const Navbar = () => {
           Skill Tracker
         </Typography>
 
-        {token ? (
+        {isAuthenticated ? (
           <Box>
             <Button
               color="inherit"
@@ -144,18 +145,18 @@ const Navbar = () => {
             </Button>
             <Button
               color="inherit"
-              component={RouterLink}
-              to="/add-skill"
-              startIcon={<AddCircle />}
-            >
-              Add Skill
-            </Button>
-            <Button
-              color="inherit"
               onClick={handleSearchOpen}
               startIcon={<Search />}
             >
               Search Profiles
+            </Button>
+            <Button
+              color="inherit"
+              component={RouterLink}
+              to="/resume-generator"
+              startIcon={<Description />}
+            >
+              Resume
             </Button>
             <IconButton
               size="large"
@@ -171,7 +172,7 @@ const Navbar = () => {
               id="menu-appbar"
               anchorEl={anchorEl}
               anchorOrigin={{
-                vertical: 'bottom',
+                vertical: 'top',
                 horizontal: 'right',
               }}
               keepMounted
@@ -182,13 +183,24 @@ const Navbar = () => {
               open={Boolean(anchorEl)}
               onClose={handleClose}
             >
-              <MenuItem onClick={() => { navigate('/profile'); handleClose(); }}>
+              <MenuItem
+                component={RouterLink}
+                to="/profile"
+                onClick={handleClose}
+              >
                 Profile
               </MenuItem>
-              <MenuItem onClick={() => { navigate('/dashboard'); handleClose(); }}>
-                Dashboard
+              <MenuItem
+                component={RouterLink}
+                to="/resume-generator"
+                onClick={handleClose}
+              >
+                Resume Generator
               </MenuItem>
-              <MenuItem onClick={handleLogout}>Logout</MenuItem>
+              <MenuItem onClick={handleLogout}>
+                <ExitToApp sx={{ mr: 2 }} />
+                Logout
+              </MenuItem>
             </Menu>
           </Box>
         ) : (
