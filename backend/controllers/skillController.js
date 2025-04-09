@@ -138,7 +138,7 @@ const deleteSkill = asyncHandler(async (req, res) => {
   
   // If no users left, delete the skill
   if (skill.users.length === 0) {
-    await skill.remove();
+    await Skill.deleteOne({ _id: skill._id });
   } else {
     await skill.save();
   }

@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import {
-  Container,
-  Paper,
-  Typography,
-  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Button,
+  TextField,
   Box,
+  Typography,
   Alert,
+  IconButton,
 } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import CloseIcon from '@mui/icons-material/Close';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const AddCertification = () => {
+const AddCertification = ({ open, onClose, onSuccess }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: '',
@@ -56,29 +60,21 @@ const AddCertification = () => {
 
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append('title', formData.title);
-      formDataToSend.append('issuer', formData.issuer);
-      formDataToSend.append('issueDate', formData.issueDate.toISOString());
-      
-      if (formData.credentialId) {
-        formDataToSend.append('credentialId', formData.credentialId);
-      }
-      
-      if (formData.credentialUrl) {
-        formDataToSend.append('credentialUrl', formData.credentialUrl);
-      }
-      
-      if (formData.description) {
-        formDataToSend.append('description', formData.description);
-      }
+      Object.keys(formData).forEach(key => {
+        if (formData[key] !== null && formData[key] !== '') {
+          if (key === 'issueDate') {
+            formDataToSend.append(key, formData[key].toISOString());
+          } else {
+            formDataToSend.append(key, formData[key]);
+          }
+        }
+      });
 
       if (formData.file) {
         formDataToSend.append('certificate', formData.file);
-        console.log('File appended to FormData:', formData.file.name, 'size:', formData.file.size);
       }
 
       const token = localStorage.getItem('token');
-      console.log('Sending request to API with FormData');
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/certifications`,
         formDataToSend,
@@ -93,11 +89,8 @@ const AddCertification = () => {
       console.log('Certification added:', response.data);
       
       if (response.data.success) {
-        console.log('Certification added successfully, navigating to profile');
-        navigate('/profile', { replace: true });
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
+        onSuccess(response.data.data);
+        navigate('/profile');
       } else {
         throw new Error(response.data.message || 'Failed to add certification');
       }
@@ -107,6 +100,19 @@ const AddCertification = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClose = () => {
+    setFormData({
+      title: '',
+      issuer: '',
+      issueDate: null,
+      credentialId: '',
+      credentialUrl: '',
+      description: '',
+      file: null,
+    });
+    onClose();
   };
 
   const handleFileChange = (e) => {
@@ -125,53 +131,28 @@ const AddCertification = () => {
         ...prev,
         file: file
       }));
-      console.log('File selected:', file.name, 'size:', file.size, 'type:', file.type);
       setError('');
-    }
-  };
-
-  // Test upload function
-  const testUpload = async () => {
-    if (!formData.file) {
-      setError('Please select a file first');
-      return;
-    }
-    
-    setLoading(true);
-    const testFormData = new FormData();
-    testFormData.append('certificate', formData.file);
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        'http://localhost:3001/api/certifications/test-upload',
-        testFormData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
-          }
-        }
-      );
-      
-      console.log('Test upload response:', response.data);
-      setError('');
-      alert('Test upload successful! Check console for details.');
-    } catch (error) {
-      console.error('Test upload error:', error);
-      setError(error.response?.data?.message || 'Error in test upload');
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Paper sx={{ p: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Add New Certification
-        </Typography>
-        <form onSubmit={handleSubmit}>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        Add New Certification
+        <IconButton
+          aria-label="close"
+          onClick={handleClose}
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <form onSubmit={handleSubmit}>
+        <DialogContent>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
@@ -180,7 +161,7 @@ const AddCertification = () => {
           <TextField
             name="title"
             autoFocus
-            margin="normal"
+            margin="dense"
             label="Certification Title"
             type="text"
             fullWidth
@@ -190,7 +171,7 @@ const AddCertification = () => {
           />
           <TextField
             name="issuer"
-            margin="normal"
+            margin="dense"
             label="Issuing Organization"
             type="text"
             fullWidth
@@ -198,24 +179,22 @@ const AddCertification = () => {
             value={formData.issuer}
             onChange={handleChange}
           />
-          <Box sx={{ mt: 2, mb: 2 }}>
-            <DatePicker
-              label="Issue Date *"
-              value={formData.issueDate}
-              onChange={handleDateChange}
-              textField={(params) => (
-                <TextField
-                  {...params}
-                  fullWidth
-                  required
-                  margin="normal"
-                />
-              )}
-            />
-          </Box>
+          <DatePicker
+            label="Issue Date"
+            value={formData.issueDate}
+            onChange={handleDateChange}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                margin="dense"
+                fullWidth
+                required
+              />
+            )}
+          />
           <TextField
             name="credentialId"
-            margin="normal"
+            margin="dense"
             label="Credential ID (Optional)"
             type="text"
             fullWidth
@@ -224,7 +203,7 @@ const AddCertification = () => {
           />
           <TextField
             name="credentialUrl"
-            margin="normal"
+            margin="dense"
             label="Credential URL (Optional)"
             type="text"
             fullWidth
@@ -233,7 +212,7 @@ const AddCertification = () => {
           />
           <TextField
             name="description"
-            margin="normal"
+            margin="dense"
             label="Description (Optional)"
             multiline
             rows={4}
@@ -259,38 +238,24 @@ const AddCertification = () => {
               </Button>
             </label>
             {formData.file && (
-              <>
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  Selected file: {formData.file.name}
-                </Typography>
-                <Button 
-                  onClick={testUpload} 
-                  size="small" 
-                  sx={{ mt: 1 }}
-                  variant="outlined"
-                  color="secondary"
-                  disabled={loading}
-                >
-                  Test Upload Only
-                </Button>
-              </>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Selected file: {formData.file.name}
+              </Typography>
             )}
           </Box>
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button onClick={() => navigate(-1)}>
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              variant="contained" 
-              disabled={loading}
-            >
-              Add Certification
-            </Button>
-          </Box>
-        </form>
-      </Paper>
-    </Container>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            disabled={loading}
+          >
+            {loading ? 'Adding...' : 'Add Certification'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 };
 

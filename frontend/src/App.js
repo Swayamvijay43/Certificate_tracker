@@ -1,67 +1,70 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Container } from '@mui/material';
-
-// Components
+import theme from './theme';
 import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-
-// Pages
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
-import EditProfile from './pages/EditProfile';
+import Dashboard from './pages/Dashboard';
+import PrivateRoute from './components/PrivateRoute';
 import PublicProfile from './pages/PublicProfile';
+import ProfileComparison from './pages/ProfileComparison';
 import AddCertification from './pages/AddCertification';
 import AddSkill from './pages/AddSkill';
-import SearchProfiles from './pages/SearchProfiles';
-import ProfileComparison from './pages/ProfileComparison';
-
-// Create theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-    background: {
-      default: '#f5f5f5',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-  },
-});
 
 function App() {
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <Navbar />
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <CssBaseline />
+        <Router>
+          <Navbar />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/edit" element={<EditProfile />} />
-            <Route path="/profile/:profileUrl" element={<PublicProfile />} />
-            <Route path="/add-certification" element={<AddCertification />} />
-            <Route path="/add-skill" element={<AddSkill />} />
-            <Route path="/search-profiles" element={<SearchProfiles />} />
-            <Route path="/compare-profiles/:profileIds" element={<ProfileComparison />} />
+            <Route 
+              path="/profile" 
+              element={
+                <PrivateRoute>
+                  <Profile />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/dashboard" 
+              element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              } 
+            />
+            <Route path="/profile/:userId" element={<PublicProfile />} />
+            <Route path="/compare" element={<ProfileComparison />} />
+            <Route 
+              path="/add-certification" 
+              element={
+                <PrivateRoute>
+                  <AddCertification />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/add-skill" 
+              element={
+                <PrivateRoute>
+                  <AddSkill />
+                </PrivateRoute>
+              } 
+            />
           </Routes>
-        </Container>
-        <Footer />
-      </Router>
+        </Router>
+      </LocalizationProvider>
     </ThemeProvider>
   );
 }

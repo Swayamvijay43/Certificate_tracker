@@ -18,22 +18,14 @@ const certificationSchema = mongoose.Schema({
     type: Date,
     required: [true, 'Please add an issue date']
   },
-  credentialId: {
-    type: String
-  },
-  credentialUrl: {
-    type: String
-  },
-  description: {
-    type: String
+  certificateUrl: {
+    type: String,
+    default: null
   },
   skills: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Skill'
   }],
-  certificateFile: {
-    type: String
-  },
   verificationStatus: {
     type: String,
     enum: ['pending', 'verified', 'rejected'],

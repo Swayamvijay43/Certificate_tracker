@@ -40,7 +40,7 @@ const Navbar = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedProfiles, setSelectedProfiles] = useState([]);
-  const isAuthenticated = localStorage.getItem('token');
+  const token = localStorage.getItem('token');
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -124,7 +124,7 @@ const Navbar = () => {
           Skill Tracker
         </Typography>
 
-        {isAuthenticated ? (
+        {token ? (
           <Box>
             <Button
               color="inherit"
@@ -141,6 +141,14 @@ const Navbar = () => {
               startIcon={<AddCircle />}
             >
               Add Certification
+            </Button>
+            <Button
+              color="inherit"
+              component={RouterLink}
+              to="/add-skill"
+              startIcon={<AddCircle />}
+            >
+              Add Skill
             </Button>
             <Button
               color="inherit"
@@ -163,7 +171,7 @@ const Navbar = () => {
               id="menu-appbar"
               anchorEl={anchorEl}
               anchorOrigin={{
-                vertical: 'top',
+                vertical: 'bottom',
                 horizontal: 'right',
               }}
               keepMounted
@@ -174,17 +182,13 @@ const Navbar = () => {
               open={Boolean(anchorEl)}
               onClose={handleClose}
             >
-              <MenuItem
-                component={RouterLink}
-                to="/profile"
-                onClick={handleClose}
-              >
+              <MenuItem onClick={() => { navigate('/profile'); handleClose(); }}>
                 Profile
               </MenuItem>
-              <MenuItem onClick={handleLogout}>
-                <ExitToApp sx={{ mr: 2 }} />
-                Logout
+              <MenuItem onClick={() => { navigate('/dashboard'); handleClose(); }}>
+                Dashboard
               </MenuItem>
+              <MenuItem onClick={handleLogout}>Logout</MenuItem>
             </Menu>
           </Box>
         ) : (

@@ -20,7 +20,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3003', 'http://localhost:3002'],
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -34,6 +34,12 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Create certificates directory if it doesn't exist
+const certificatesDir = path.join(uploadsDir, 'certificates');
+if (!fs.existsSync(certificatesDir)) {
+  fs.mkdirSync(certificatesDir, { recursive: true });
+}
+
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -45,15 +51,31 @@ app.use('/api/profiles', profileComparisonRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  console.error('Error:', err);
+  
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      message: Object.values(err.errors).map(error => error.message).join(', ')
+    });
+  }
+  
+  if (err.code === 11000) {
+    return res.status(400).json({
+      message: 'This email is already registered'
+    });
+  }
+  
+  res.status(err.status || 500).json({
+    message: err.message || 'Something went wrong on the server'
+  });
 });
 
 const PORT = process.env.PORT || 3001;
-console.log('Environment variables:', {
+console.log('Server configuration:', {
   PORT: process.env.PORT,
-  MONGODB_URI: process.env.MONGODB_URI,
-  NODE_ENV: process.env.NODE_ENV
+  MONGODB_URI: process.env.MONGODB_URI?.split('?')[0], // Log URI without credentials
+  NODE_ENV: process.env.NODE_ENV,
+  CORS_ORIGIN: process.env.CORS_ORIGIN
 });
 
 app.listen(PORT, () => {

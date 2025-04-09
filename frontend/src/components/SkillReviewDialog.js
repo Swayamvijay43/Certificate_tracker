@@ -62,18 +62,48 @@ const SkillReviewDialog = ({
   };
 
   const handleAddNewSkill = () => {
-    if (newSkill.name && newSkill.category) {
-      setSkills([...skills, { ...newSkill, confidence: 1.0 }]);
-      setNewSkill({
-        name: '',
-        level: 'beginner',
-        category: '',
-      });
+    if (!newSkill.name || !newSkill.category) {
+      console.warn('Both skill name and category are required');
+      return;
     }
+
+    const skillToAdd = {
+      name: newSkill.name.trim(),
+      category: newSkill.category.trim(),
+      level: newSkill.level || 'beginner',
+      confidence: 1.0
+    };
+
+    console.log('Adding new skill:', skillToAdd);
+    setSkills([...skills, skillToAdd]);
+    
+    // Reset the form
+    setNewSkill({
+      name: '',
+      level: 'beginner',
+      category: '',
+    });
   };
 
   const handleConfirm = () => {
-    onConfirm(skills);
+    // Filter out any skills with empty names or categories
+    const validSkills = skills.filter(skill => 
+      skill.name && skill.name.trim() !== '' && 
+      skill.category && skill.category.trim() !== ''
+    ).map(skill => ({
+      name: skill.name.trim(),
+      category: skill.category.trim(),
+      level: skill.level || 'beginner',
+      confidence: skill.confidence || 1.0
+    }));
+
+    if (validSkills.length === 0) {
+      console.warn('No valid skills to add');
+      return;
+    }
+
+    console.log('Confirming skills:', validSkills);
+    onConfirm(validSkills);
     onClose();
   };
 

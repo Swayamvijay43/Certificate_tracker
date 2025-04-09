@@ -1,59 +1,103 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
+const asyncHandler = require('express-async-handler');
+const Certification = require('../models/certificationModel');
 const {
-  addCertification,
   getCertifications,
   getCertification,
+  addCertification,
   updateCertification,
   deleteCertification,
-  analyzeCertificationFile,
+  listCertificateFiles,
   upload
 } = require('../controllers/certificationController');
-const { textModel, testGeminiConnection } = require('../config/geminiConfig');
 
-// Test route for Gemini AI - no auth required for testing
-router.get('/test-gemini', async (req, res) => {
-  try {
-    console.log('Testing Gemini AI configuration...');
-    
-    // Test the connection
-    await testGeminiConnection();
-    
-    // If we get here, the test was successful
-    res.json({ 
-      success: true, 
-      message: 'Gemini AI connection test successful'
+// Protected routes
+router.use(protect);
+
+router.route('/files')
+  .get(listCertificateFiles);
+
+// Test route for file uploads
+router.post('/test-upload', upload.single('certificate'), (req, res) => {
+  console.log('Test upload route called');
+  console.log('Request content-type:', req.headers['content-type']);
+  console.log('File received:', req.file ? {
+    filename: req.file.filename,
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size
+  } : 'No file received');
+  console.log('Body fields:', req.body);
+  
+  if (req.file) {
+    return res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      file: {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        path: req.file.path,
+        url: `http://localhost:3001/uploads/certificates/${req.file.filename}`
+      }
     });
-  } catch (error) {
-    console.error('Gemini AI test error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  } else {
+    return res.status(400).json({
+      success: false,
+      message: 'No file uploaded'
     });
   }
 });
 
-// All routes below this are protected
-router.use(protect);
+router.route('/')
+  .get(getCertifications)
+  .post(upload.single('certificate'), addCertification);
 
-// Get all certifications
-router.get('/', getCertifications);
+router.route('/:id')
+  .get(getCertification)
+  .put(updateCertification)
+  .delete(deleteCertification);
 
-// Get single certification
-router.get('/:id', getCertification);
-
-// Add new certification
-router.post('/', upload.single('certificateFile'), addCertification);
-
-// Analyze certificate
-router.post('/analyze', upload.single('certificateFile'), analyzeCertificationFile);
-
-// Update certification
-router.put('/:id', updateCertification);
-
-// Delete certification
-router.delete('/:id', deleteCertification);
+// Route for uploading certificate to existing certification
+router.post('/:id/upload', upload.single('certificate'), asyncHandler(async (req, res) => {
+  try {
+    const certification = await Certification.findById(req.params.id);
+    
+    if (!certification) {
+      res.status(404);
+      throw new Error('Certification not found');
+    }
+    
+    // Check if the certification belongs to the user
+    if (certification.user.toString() !== req.user._id.toString()) {
+      res.status(401);
+      throw new Error('Not authorized');
+    }
+    
+    // If file was uploaded, update the URL
+    if (req.file) {
+      certification.certificateUrl = `http://localhost:3001/uploads/certificates/${req.file.filename}`;
+      await certification.save();
+      
+      res.json({
+        success: true,
+        message: 'Certificate uploaded successfully',
+        certificateUrl: certification.certificateUrl
+      });
+    } else {
+      res.status(400);
+      throw new Error('No file uploaded');
+    }
+  } catch (error) {
+    console.error('Error uploading certificate:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error uploading certificate'
+    });
+  }
+}));
 
 module.exports = router; 

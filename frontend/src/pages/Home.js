@@ -1,103 +1,47 @@
 import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import {
-  Container,
-  Box,
-  Typography,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-} from '@mui/material';
-import {
-  School as SchoolIcon,
-  Code as CodeIcon,
-  Share as ShareIcon,
-} from '@mui/icons-material';
+import { Container, Typography, Button, Box } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 const Home = () => {
+  const navigate = useNavigate();
+
   return (
-    <Container>
+    <Container maxWidth="md">
       <Box
         sx={{
           mt: 8,
-          mb: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           textAlign: 'center',
         }}
       >
         <Typography variant="h2" component="h1" gutterBottom>
-          Skill & Certification Tracker
+          Welcome to Skill Tracker
         </Typography>
         <Typography variant="h5" color="text.secondary" paragraph>
-          Track, showcase, and share your skills and certifications in one place
+          Track your skills and certifications in one place
         </Typography>
         <Box sx={{ mt: 4 }}>
           <Button
-            component={RouterLink}
-            to="/register"
             variant="contained"
+            color="primary"
             size="large"
+            onClick={() => navigate('/register')}
             sx={{ mr: 2 }}
           >
             Get Started
           </Button>
           <Button
-            component={RouterLink}
-            to="/login"
             variant="outlined"
+            color="primary"
             size="large"
+            onClick={() => navigate('/login')}
           >
             Sign In
           </Button>
         </Box>
       </Box>
-
-      <Grid container spacing={4} sx={{ mb: 8 }}>
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <SchoolIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-              <Typography variant="h5" gutterBottom>
-                Track Certifications
-              </Typography>
-              <Typography color="text.secondary">
-                Keep all your certifications organized in one place. Add details,
-                upload certificates, and track expiration dates.
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <CodeIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-              <Typography variant="h5" gutterBottom>
-                Showcase Skills
-              </Typography>
-              <Typography color="text.secondary">
-                Document your skills with levels and categories. Visualize your
-                progress with interactive charts.
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <ShareIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-              <Typography variant="h5" gutterBottom>
-                Share Profile
-              </Typography>
-              <Typography color="text.secondary">
-                Create a public profile to share with recruiters, faculty, or
-                potential employers.
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
     </Container>
   );
 };
