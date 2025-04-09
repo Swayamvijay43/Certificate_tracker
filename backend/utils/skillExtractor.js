@@ -1,4 +1,4 @@
-const { textModel } = require('../config/geminiConfig');
+const { model } = require('../config/geminiConfig');
 const Skill = require('../models/skillModel');
 const User = require('../models/userModel');
 
@@ -29,7 +29,7 @@ async function extractSkillsFromCertificate(certificateData) {
       Only include skills with confidence > 0.7
     `;
 
-    const result = await textModel.generateContent(prompt);
+    const result = await model.generateContent(prompt);
     const extractedData = JSON.parse(await result.response.text());
     return extractedData.skills;
   } catch (error) {

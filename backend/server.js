@@ -10,6 +10,7 @@ const userRoutes = require('./routes/userRoutes');
 const certificationRoutes = require('./routes/certificationRoutes');
 const skillRoutes = require('./routes/skillRoutes');
 const profileComparisonRoutes = require('./routes/profileComparisonRoutes');
+const resumeRoutes = require('./routes/resumeRoutes');
 const fs = require('fs');
 
 // Create Express app
@@ -42,6 +43,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/certifications', certificationRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/profiles', profileComparisonRoutes);
+app.use('/api/resume', resumeRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
